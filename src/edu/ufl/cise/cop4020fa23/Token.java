@@ -1,36 +1,20 @@
-/*Copyright 2023 by Beverly A Sanders
- * 
- * This code is provided for solely for use of students in COP4020 Programming Language Concepts at the 
- * University of Florida during the fall semester 2023 as part of the course project.  
- * 
- * No other use is authorized. 
- * 
- * This code may not be posted on a public web site either during or after the course.  
- */
+//
+// Source code recreated from a .class file by IntelliJ IDEA
+// (powered by FernFlower decompiler)
+//
+
 package edu.ufl.cise.cop4020fa23;
 
 import java.util.Objects;
 
-/**
- * 
- */
 public class Token implements IToken {
-
 	final Kind kind;
 	final int pos;
 	final int length;
 	final char[] source;
 	final SourceLocation location;
 
-	/**
-	 * @param kind
-	 * @param pos
-	 * @param length
-	 * @param source
-	 * @param location
-	 */
 	public Token(Kind kind, int pos, int length, char[] source, SourceLocation location) {
-		super();
 		this.kind = kind;
 		this.pos = pos;
 		this.length = length;
@@ -38,47 +22,37 @@ public class Token implements IToken {
 		this.location = location;
 	}
 
-	@Override
 	public SourceLocation sourceLocation() {
-		return location;
+		return this.location;
 	}
 
-	@Override
 	public Kind kind() {
-		return kind;
+		return this.kind;
 	}
 
-	@Override
 	public String text() {
-		if(length > 0) {
-			return String.copyValueOf(source, pos, length);
-		}
-		return "";
+		return new String(this.source);
 	}
 
-
-	
-	@Override 
 	public String toString() {
-		return ("["+kind+" "+text()+"]" );
+		String var10000 = String.valueOf(this.kind);
+		return "[" + var10000 + " " + this.text() + "]";
 	}
 
-	@Override
 	public int hashCode() {
-		return Objects.hash(kind, length, location, pos);
+		return Objects.hash(new Object[]{this.kind, this.length, this.location, this.pos});
 	}
 
-	@Override
 	public boolean equals(Object obj) {
-		if (this == obj)
+		if (this == obj) {
 			return true;
-		if (obj == null)
+		} else if (obj == null) {
 			return false;
-		if (getClass() != obj.getClass())
+		} else if (this.getClass() != obj.getClass()) {
 			return false;
-		Token other = (Token) obj;
-		return kind == other.kind && length == other.length && Objects.equals(location, other.location)
-				&& pos == other.pos;
+		} else {
+			Token other = (Token)obj;
+			return this.kind == other.kind && this.length == other.length && Objects.equals(this.location, other.location) && this.pos == other.pos;
+		}
 	}
-
 }

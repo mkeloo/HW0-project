@@ -12,7 +12,21 @@ package edu.ufl.cise.cop4020fa23;
 /**
  * 
  */
-public record SourceLocation(int line, int column) {}
+public record SourceLocation(int line, int column) {
+    public SourceLocation(int line, int column) {
+        this.line = line;
+        this.column = column;
+    }
+
+    public int line() {
+        return this.line;
+    }
+
+    public int column() {
+        return this.column;
+    }
+}
+
 
 
 

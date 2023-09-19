@@ -9,13 +9,12 @@
  */
 package edu.ufl.cise.cop4020fa23;
 
-/**
- * Factory class providing static methods to create and return various components of the compiler
- */
 public class ComponentFactory {
+	public ComponentFactory() {
+	}
 
-		public static ILexer makeLexer(String input) {
-			return new Lexer(input);
-		}
-		
+	public static ILexer makeLexer(String input) {
+		return new Lexer(input);
+	}
 }
+

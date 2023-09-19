@@ -1,361 +1,500 @@
-//
-// Source code recreated from a .class file by IntelliJ IDEA
-// (powered by FernFlower decompiler)
-//
-
 package edu.ufl.cise.cop4020fa23;
 
+import static edu.ufl.cise.cop4020fa23.Kind.*;
 import edu.ufl.cise.cop4020fa23.exceptions.LexicalException;
+
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
 public class Lexer implements ILexer {
+
 	private final char[] chars;
 	private int pos = 0;
 	private int startPos;
 	private int line = 1;
+
 	private boolean reachedEOF = false;
 	private boolean eofReached = false;
-	private State state;
-	private static final Map<String, Kind> RESERVED_WORDS;
 
-	public Lexer(String input) {
-		this.state = Lexer.State.START;
-		this.chars = (input + "\u0000").toCharArray();
+	private enum State {
+		START, IN_STRING, IN_IDENT, HAVE_ZERO, HAVE_DOT, IN_FLOAT, IN_NUM,
+		HAVE_EQ, HAVE_MINUS, HAVE_LT, HAVE_GT, HAVE_COLON,
+		HAVE_AMP,
+		HAVE_PIPE,
+		HAVE_TIMES,
+		HAVE_BLOCK_OPEN,
+		HAVE_BLOCK_CLOSE,
+		HAVE_RARROW,
+		HAVE_LSQUARE
 	}
 
+	private State state = State.START;
+
+	private static final Map<String, Kind> RESERVED_WORDS;
+
+	static {
+		Map<String, Kind> map = new HashMap<>();
+		map.put("image", Kind.RES_image);
+		map.put("pixel", Kind.RES_pixel);
+		map.put("int", Kind.RES_int);
+		map.put("string", Kind.RES_string);
+		map.put("void", Kind.RES_void);
+		map.put("boolean", Kind.RES_boolean);
+		map.put("nil", Kind.RES_nil);
+		map.put("write", Kind.RES_write);
+		map.put("height", Kind.RES_height);
+		map.put("width", Kind.RES_width);
+		map.put("if", Kind.RES_if);
+		map.put("fi", Kind.RES_fi);
+		map.put("do", Kind.RES_do);
+		map.put("od", Kind.RES_od);
+		map.put("red", Kind.RES_red);
+		map.put("green", Kind.RES_green);
+		map.put("blue", Kind.RES_blue);
+		map.put("Z", Kind.CONST);
+		map.put("BLACK", Kind.CONST);
+		map.put("BLUE", Kind.CONST);
+		map.put("CYAN", Kind.CONST);
+		map.put("DARK_GRAY", Kind.CONST);
+		map.put("GRAY", Kind.CONST);
+		map.put("GREEN", Kind.CONST);
+		map.put("MAGENTA", Kind.CONST);
+		map.put("ORANGE", Kind.CONST);
+		map.put("PINK", Kind.CONST);
+		map.put("RED", Kind.CONST);
+		map.put("WHITE", Kind.CONST);
+		map.put("YELLOW", Kind.CONST);
+		map.put("TRUE", Kind.BOOLEAN_LIT);
+		map.put("FALSE", Kind.BOOLEAN_LIT);
+
+		RESERVED_WORDS = Collections.unmodifiableMap(map);
+	}
+
+	public Lexer(String input) {
+		this.chars = (input + "\0").toCharArray();
+	}
+
+	@Override
 	public IToken next() throws LexicalException {
-		if (this.reachedEOF) {
-			return new Token(Kind.EOF, this.startPos, 1, (char[])null, new SourceLocation(this.line, this.startPos));
-		} else if (this.eofReached) {
-			throw new LexicalException(new SourceLocation(this.line, this.pos), "End of file reached");
-		} else {
-			IToken resultToken = null;
-
-			while(resultToken == null && !this.reachedEOF) {
-				char ch = this.chars[this.pos];
-				switch (this.state) {
-					case START:
-						resultToken = this.handleStart(ch);
-						break;
-					case IN_IDENT:
-						resultToken = this.handleIdentifier(ch);
-						break;
-					case IN_STRING:
-						resultToken = this.handleString(ch);
-						break;
-					case HAVE_ZERO:
-						resultToken = this.handleZero(ch);
-						break;
-					case HAVE_DOT:
-						resultToken = this.handleDot(ch);
-						break;
-					case IN_NUM:
-						resultToken = this.handleNumber(ch);
-						break;
-					case HAVE_EQ:
-						resultToken = this.handleEqual(ch);
-						break;
-					case HAVE_MINUS:
-						resultToken = this.handleMinus(ch);
-						break;
-					case HAVE_LT:
-						resultToken = this.handleLT(ch);
-						break;
-					case HAVE_GT:
-						this.handleGT(ch);
-						break;
-					case HAVE_LSQUARE:
-						resultToken = this.handleLSquare(ch);
-						break;
-					case HAVE_AMP:
-						resultToken = this.handleBitAnd(ch);
-						break;
-					default:
-						throw new IllegalStateException("Lexer bug");
-				}
-			}
-
-			return resultToken;
+		if (reachedEOF) {
+			return new Token(Kind.EOF, startPos, 1, null, new SourceLocation(line, startPos)); // Return an EOF token
 		}
+		if (eofReached) {
+			throw new LexicalException(new SourceLocation(line, pos), "End of file reached");
+		}
+
+		IToken resultToken = null;
+
+		while (resultToken == null && !reachedEOF) {
+			char ch = chars[pos];
+			switch (state) {
+				case START -> resultToken = handleStart(ch);
+				case IN_IDENT -> resultToken = handleIdentifier(ch);
+				case IN_STRING -> resultToken = handleString(ch);
+				case HAVE_ZERO -> resultToken = handleZero(ch);
+				case HAVE_DOT -> resultToken = handleDot(ch);
+				case IN_NUM -> resultToken = handleNumber(ch);
+				case HAVE_EQ -> resultToken = handleEqual(ch);
+				case HAVE_MINUS -> resultToken = handleMinus(ch);
+				case HAVE_LT -> resultToken = handleLT(ch);
+				case HAVE_GT -> handleGT(ch);
+				case HAVE_LSQUARE -> resultToken = handleLSquare(ch);
+				case HAVE_AMP -> resultToken = handleBitAnd(ch);
+				default -> throw new IllegalStateException("Lexer bug");
+			}
+		}
+
+		return resultToken;
 	}
 
 	private IToken handleStart(char ch) throws LexicalException {
-		this.skipWhitespace();
-		this.startPos = this.pos;
-		SourceLocation errorLocation;
+		skipWhitespace();
+		startPos = pos;
+
 		switch (ch) {
-			case '\u0000':
-				this.reachedEOF = true;
-				this.eofReached = true;
-				return this.createToken(Kind.EOF, this.startPos, 1);
-			case '\u0001':
-			case '\u0002':
-			case '\u0003':
-			case '\u0004':
-			case '\u0005':
-			case '\u0006':
-			case '\u0007':
-			case '\b':
-			case '\u000b':
-			case '\f':
-			case '\u000e':
-			case '\u000f':
-			case '\u0010':
-			case '\u0011':
-			case '\u0012':
-			case '\u0013':
-			case '\u0014':
-			case '\u0015':
-			case '\u0016':
-			case '\u0017':
-			case '\u0018':
-			case '\u0019':
-			case '\u001a':
-			case '\u001b':
-			case '\u001c':
-			case '\u001d':
-			case '\u001e':
-			case '\u001f':
-			case '$':
-			case '\'':
-			case '.':
-			case '1':
-			case '2':
-			case '3':
-			case '4':
-			case '5':
-			case '6':
-			case '7':
-			case '8':
-			case '9':
-			case '@':
-			case 'A':
-			case 'B':
-			case 'C':
-			case 'D':
-			case 'E':
-			case 'F':
-			case 'G':
-			case 'H':
-			case 'I':
-			case 'J':
-			case 'K':
-			case 'L':
-			case 'M':
-			case 'N':
-			case 'O':
-			case 'P':
-			case 'Q':
-			case 'R':
-			case 'S':
-			case 'T':
-			case 'U':
-			case 'V':
-			case 'W':
-			case 'X':
-			case 'Y':
-			case 'Z':
-			case '\\':
-			case '_':
-			case '`':
-			case 'a':
-			case 'b':
-			case 'c':
-			case 'd':
-			case 'e':
-			case 'f':
-			case 'g':
-			case 'h':
-			case 'i':
-			case 'j':
-			case 'k':
-			case 'l':
-			case 'm':
-			case 'n':
-			case 'o':
-			case 'p':
-			case 'q':
-			case 'r':
-			case 's':
-			case 't':
-			case 'u':
-			case 'v':
-			case 'w':
-			case 'x':
-			case 'y':
-			case 'z':
-			case '{':
-			default:
-				if (Character.isLetter(ch)) {
-					this.state = Lexer.State.IN_IDENT;
-					++this.pos;
+			case ' ', '\t', '\r' -> {
+				pos++;
+				return null;
+			}
+			case '\n' -> {
+				line++;
+				pos++;
+				return null;
+			}
+
+			case '#' -> {
+				if (chars[pos + 1] == '#') {
+					pos += 2;
+					while (chars[pos] != '\n' && chars[pos] != '\0') {
+						pos++;
+					}
 					return null;
 				} else {
-					if (Character.isDigit(ch)) {
-						this.state = Lexer.State.IN_NUM;
-						++this.pos;
-						return null;
-					}
-
-					errorLocation = new SourceLocation(this.line, this.startPos);
-					throw new LexicalException(errorLocation, "Unrecognized token at position: " + this.startPos);
+					SourceLocation errorLocation = new SourceLocation(line, startPos);
+					throw new LexicalException(errorLocation, "Unrecognized token at position: " + startPos);
 				}
-			case '\t':
-			case '\r':
-			case ' ':
-				++this.pos;
+			}
+			case '+' -> {
+				pos++;
+				state = State.START;
+				return createToken(Kind.PLUS, startPos, 1);
+			}
+			case '-' -> {
+				pos++;
+				state = State.HAVE_MINUS;
 				return null;
-			case '\n':
-				++this.line;
-				++this.pos;
-				return null;
-			case '!':
-				++this.pos;
-				this.state = Lexer.State.START;
-				return this.createToken(Kind.BANG, this.startPos, 1);
-			case '"':
-				++this.pos;
-				this.state = Lexer.State.IN_STRING;
-				return null;
-			case '#':
-				if (this.chars[this.pos + 1] != '#') {
-					errorLocation = new SourceLocation(this.line, this.startPos);
-					throw new LexicalException(errorLocation, "Unrecognized token at position: " + this.startPos);
-				}
-
-				for(this.pos += 2; this.chars[this.pos] != '\n' && this.chars[this.pos] != 0; ++this.pos) {
-				}
-
-				return null;
-			case '%':
-				++this.pos;
-				this.state = Lexer.State.START;
-				return this.createToken(Kind.MOD, this.startPos, 1);
-			case '&':
-				++this.pos;
-				this.state = Lexer.State.HAVE_AMP;
-				return null;
-			case '(':
-				++this.pos;
-				this.state = Lexer.State.START;
-				return this.createToken(Kind.LPAREN, this.startPos, 1);
-			case ')':
-				++this.pos;
-				this.state = Lexer.State.START;
-				return this.createToken(Kind.RPAREN, this.startPos, 1);
-			case '*':
-				if (this.chars[this.pos + 1] == '*') {
-					this.pos += 2;
-					this.state = Lexer.State.START;
-					return this.createToken(Kind.EXP, this.startPos, 2);
-				}
-
-				++this.pos;
-				this.state = Lexer.State.START;
-				return this.createToken(Kind.TIMES, this.startPos, 1);
-			case '+':
-				++this.pos;
-				this.state = Lexer.State.START;
-				return this.createToken(Kind.PLUS, this.startPos, 1);
-			case ',':
-				++this.pos;
-				this.state = Lexer.State.START;
-				return this.createToken(Kind.COMMA, this.startPos, 1, this.chars);
-			case '-':
-				++this.pos;
-				this.state = Lexer.State.HAVE_MINUS;
-				return null;
-			case '/':
-				if (this.chars[this.pos + 1] != '*') {
-					++this.pos;
-					this.state = Lexer.State.START;
-					return this.createToken(Kind.DIV, this.startPos, 1);
+			}
+			case ',' -> {
+				pos++;
+				state = State.START;
+				return createToken(Kind.COMMA, startPos, 1, chars);
+			}
+			case ';' -> {
+				pos++;
+				state = State.START;
+				return createToken(Kind.SEMI, startPos, 1);
+			}
+			case '?' -> {
+				pos++;
+				state = State.START;
+				return createToken(Kind.QUESTION, startPos, 1);
+			}
+			case ':' -> {
+				if (chars[pos + 1] == '>') {
+					pos += 2;
+					state = State.START;
+					return createToken(Kind.BLOCK_CLOSE, startPos, 2);
 				} else {
-					for(this.pos += 2; (this.chars[this.pos] != '*' || this.chars[this.pos + 1] != '/') && this.chars[this.pos] != 0; ++this.pos) {
-					}
-
-					if (this.chars[this.pos] == '*' && this.chars[this.pos + 1] == '/') {
-						this.pos += 2;
-						return null;
-					}
-
-					errorLocation = new SourceLocation(this.line, this.startPos);
-					throw new LexicalException(errorLocation, "Unterminated comment starting at position: " + this.startPos);
+					pos++;
+					state = State.START;
+					return createToken(Kind.COLON, startPos, 1);
 				}
-			case '0':
-				++this.pos;
-				this.state = Lexer.State.HAVE_ZERO;
+			}
+			case '(' -> {
+				pos++;
+				state = State.START;
+				return createToken(Kind.LPAREN, startPos, 1);
+			}
+			case ')' -> {
+				pos++;
+				state = State.START;
+				return createToken(Kind.RPAREN, startPos, 1);
+			}
+			case '<' -> {
+				pos++;
+				state = State.HAVE_LT;
 				return null;
-			case ':':
-				if (this.chars[this.pos + 1] == '>') {
-					this.pos += 2;
-					this.state = Lexer.State.START;
-					return this.createToken(Kind.BLOCK_CLOSE, this.startPos, 2);
-				}
 
-				++this.pos;
-				this.state = Lexer.State.START;
-				return this.createToken(Kind.COLON, this.startPos, 1);
-			case ';':
-				++this.pos;
-				this.state = Lexer.State.START;
-				return this.createToken(Kind.SEMI, this.startPos, 1);
-			case '<':
-				++this.pos;
-				this.state = Lexer.State.HAVE_LT;
+			}
+			case '>' -> {
+				pos++;
+				state = State.HAVE_GT;
+				return createToken(Kind.GT, startPos, 1);
+			}
+			case '[' -> {
+				pos++;
+				state = State.HAVE_LSQUARE;
 				return null;
-			case '=':
-				++this.pos;
-				this.state = Lexer.State.HAVE_EQ;
+			}
+			case ']' -> {
+				pos++;
+				state = State.START;
+				return createToken(Kind.RSQUARE, startPos, 1);
+			}
+			case '=' -> {
+				pos++;
+				state = State.HAVE_EQ;
 				return null;
-			case '>':
-				++this.pos;
-				this.state = Lexer.State.HAVE_GT;
-				return this.createToken(Kind.GT, this.startPos, 1);
-			case '?':
-				++this.pos;
-				this.state = Lexer.State.START;
-				return this.createToken(Kind.QUESTION, this.startPos, 1);
-			case '[':
-				++this.pos;
-				this.state = Lexer.State.HAVE_LSQUARE;
-				return null;
-			case ']':
-				++this.pos;
-				this.state = Lexer.State.START;
-				return this.createToken(Kind.RSQUARE, this.startPos, 1);
-			case '^':
-				++this.pos;
-				this.state = Lexer.State.START;
-				return this.createToken(Kind.RETURN, this.startPos, 1);
-			case '|':
-				if (this.chars[this.pos + 1] == '|') {
-					this.pos += 2;
-					this.state = Lexer.State.START;
-					return this.createToken(Kind.OR, this.startPos, 2);
+			}
+			case '!' -> {
+				pos++;
+				state = State.START;
+				return createToken(Kind.BANG, startPos, 1);
+			}
+			case '*' -> {
+				if (chars[pos + 1] == '*') {
+					pos += 2;
+					state = State.START;
+					return createToken(Kind.EXP, startPos, 2);
 				} else {
-					++this.pos;
-					this.state = Lexer.State.START;
-					return this.createToken(Kind.BITOR, this.startPos, 1);
+					pos++;
+					state = State.START;
+					return createToken(Kind.TIMES, startPos, 1);
 				}
+			}
+			case '/' -> {
+				if (chars[pos + 1] == '*') {
+					pos += 2;
+					while (!(chars[pos] == '*' && chars[pos + 1] == '/') && chars[pos] != '\0') {
+						pos++;
+					}
+					if (chars[pos] == '*' && chars[pos + 1] == '/') {
+						pos += 2;
+					} else {
+						SourceLocation errorLocation = new SourceLocation(line, startPos);
+						throw new LexicalException(errorLocation,
+								"Unterminated comment starting at position: " + startPos);
+					}
+					return null;
+				} else {
+					pos++;
+					state = State.START;
+					return createToken(Kind.DIV, startPos, 1);
+				}
+			}
+			case '%' -> {
+				pos++;
+				state = State.START;
+				return createToken(Kind.MOD, startPos, 1);
+			}
+			case '|' -> {
+				if (chars[pos + 1] == '|') {
+					pos += 2;
+					state = State.START;
+					return createToken(Kind.OR, startPos, 2);
+				} else {
+					pos++;
+					state = State.START;
+					return createToken(Kind.BITOR, startPos, 1);
+				}
+			}
+			case '&' -> {
+				pos++;
+				state = State.HAVE_AMP;
+				return null;
+			}
+			case '^' -> {
+				pos++;
+				state = State.START;
+				return createToken(Kind.RETURN, startPos, 1);
+			}
+			case '"' -> {
+				pos++;
+				state = State.IN_STRING;
+				return null;
+			}
+			case '0' -> {
+				pos++;
+				state = State.HAVE_ZERO;
+				return null;
+			}
+			case '\0' -> {
+				reachedEOF = true;
+				eofReached = true;
+				return createToken(Kind.EOF, startPos, 1);
+			}
+			default -> {
+				if (Character.isLetter(ch)) {
+					state = State.IN_IDENT;
+					pos++;
+					return null;
+				} else if (Character.isDigit(ch)) {
+					state = State.IN_NUM;
+					pos++;
+					return null;
+				} else {
+					SourceLocation errorLocation = new SourceLocation(line, startPos);
+					throw new LexicalException(errorLocation, "Unrecognized token at position: " + startPos);
+				}
+			}
 		}
 	}
 
 	private IToken handleIdentifier(char ch) {
 		if (!Character.isLetterOrDigit(ch) && ch != '_') {
-			String identifier = new String(this.chars, this.startPos, this.pos - this.startPos);
-			Kind kind = (Kind)RESERVED_WORDS.getOrDefault(identifier, Kind.IDENT);
-			this.state = Lexer.State.START;
-			return this.createToken(kind, this.startPos, identifier.length(), this.chars);
+			String identifier = new String(chars, startPos, pos - startPos);
+
+			Kind kind;
+			// if (RESERVED_WORDS.containsKey(identifier)) {
+			// kind = RESERVED_WORDS.get(identifier);
+			// } else {
+			// kind = Kind.IDENT;
+			// }
+			kind = RESERVED_WORDS.getOrDefault(identifier, Kind.IDENT);
+
+			state = State.START;
+			return createToken(kind, startPos, identifier.length(), chars);
 		} else {
-			++this.pos;
+			pos++;
 			return null;
 		}
 	}
 
+	private IToken handleString(char ch) {
+		if (ch == '"') {
+			String stringValue = new String(chars, startPos + 1, pos - startPos - 1);
+			pos++;
+			state = State.START;
+			return createToken(STRING_LIT, startPos, stringValue.length() + 2, chars);
+		} else if (ch == '\0' || ch == '\n') {
+			state = State.START;
+			return null;
+		} else {
+			pos++;
+			return null;
+		}
+	}
 
+	private IToken handleZero(char ch) {
+		if (Character.isDigit(ch) && ch != '0') {
+			state = State.START;
+			return createToken(NUM_LIT, startPos, 1, chars);
+		} else {
+			pos++;
+			state = State.START;
+			return createToken(NUM_LIT, startPos, 1, chars);
+		}
+	}
+
+	private IToken handleDot(char ch) {
+		if (Character.isDigit(chars[pos + 1])) {
+			pos++;
+			while (Character.isDigit(chars[pos])) {
+				pos++;
+			}
+			state = State.START;
+			return createToken(Kind.FLOAT_LIT, startPos, pos - startPos, chars);
+		} else {
+			pos++;
+			state = State.START;
+			return createToken(Kind.DOT, startPos, 1, chars);
+		}
+	}
+
+	private IToken handleNumber(char ch) throws LexicalException {
+		if (Character.isDigit(ch)) {
+			pos++;
+			return null;
+		} else {
+			String numString = new String(chars, startPos, pos - startPos);
+			if (numString.length() > 10) {
+				SourceLocation errorLocation = new SourceLocation(line, startPos);
+				throw new LexicalException(errorLocation, "Number is too large at position: " + startPos);
+			}
+
+			state = State.START;
+			return createToken(NUM_LIT, startPos, numString.length(), chars);
+		}
+	}
+
+	private IToken handleEqual(char ch) {
+		if (ch == '=') {
+			pos++;
+			state = State.START;
+			return createToken(Kind.EQ, startPos, 2); // ==
+		} else {
+			state = State.START;
+			return createToken(Kind.ASSIGN, startPos, 1); // =
+		}
+	}
+
+	private IToken handleMinus(char ch) {
+		if (ch == '>') {
+			pos++;
+			state = State.START;
+			return createToken(Kind.RARROW, startPos, 2);
+		} else {
+			state = State.START;
+			return createToken(Kind.MINUS, startPos, 1);
+		}
+	}
+
+	private IToken handleLT(char ch) {
+		if (ch == '=') {
+			pos++;
+			state = State.START;
+			return createToken(Kind.LE, startPos, 2);
+		} else if (ch == ':') {
+			pos++;
+			state = State.START;
+			return createToken(Kind.BLOCK_OPEN, startPos, 2);
+		} else {
+			state = State.START;
+			return createToken(Kind.LT, startPos, 1);
+		}
+	}
+
+	private void handleGT(char ch) {
+		if (ch == '=') {
+			createToken(Kind.GE, startPos, 2);
+			pos++;
+		} else {
+			createToken(Kind.GT, startPos, 1);
+		}
+		state = State.START;
+	}
+
+	private IToken handleLSquare(char ch) {
+		if (ch == ']') {
+			pos++;
+			state = State.START;
+			return createToken(Kind.BOX, startPos, 2);
+		} else {
+			state = State.START;
+			return createToken(Kind.LSQUARE, startPos, 1);
+		}
+	}
+
+	private IToken handleBitAnd(char ch) {
+		IToken token;
+		if (ch == '&') {
+			pos += 2;
+			token = createToken(Kind.AND, startPos, 2); // return AND for '&&'
+		} else {
+			pos++;
+			token = createToken(Kind.BITAND, startPos, 1); // return BITAND for a single '&'
+		}
+		startPos = pos;
+		state = State.START;
+		return token;
+	}
+
+	private void skipWhitespace() {
+		int currentPos = pos;
+		while (currentPos < chars.length) {
+			char ch = chars[currentPos];
+			if (ch == ' ' || ch == '\t' || ch == '\r' || ch == '\n') {
+				if (ch == '\n')
+					line++;
+				currentPos++;
+			} else {
+				break;
+			}
+		}
+	}
+
+	// private IToken createToken(Kind kind, int startPos, int length) {
+	// IToken token = new Token(kind, startPos, length, null, new
+	// SourceLocation(line, startPos));
+	// System.out.println("Token: " + kind + " at position " + startPos);
+	// return token;
+	// }
+
+	private IToken createToken(Kind kind, int startPos, int length) {
+		return getiToken(kind, startPos, length, chars);
+	}
+
+	private IToken getiToken(Kind kind, int startPos, int length, char[] chars) {
+		char[] value = Arrays.copyOfRange(chars, startPos, startPos + length);
+		IToken token = new Token(kind, startPos, length, value, new SourceLocation(line, startPos));
+		// System.out.println("Token: " + kind + " and value: " + Arrays.toString(value)
+		// + " at position " + startPos);
+		return token;
+	}
+
+	// private IToken createToken(Kind kind, int startPos, int length, char[] value)
+	// {
+	// IToken token = new Token(kind, startPos, length, value, new
+	// SourceLocation(line, startPos));
+	// System.out.println("Token: " + kind + " and value: " + Arrays.toString(value)
+	// + " at position " + startPos);
+	// return token;
+	// }
+
+	private IToken createToken(Kind kind, int startPos, int length, char[] source) {
+		return getiToken(kind, startPos, length, source);
+	}
 
 }
